@@ -183,8 +183,10 @@ class FullyConnectedNet(object):
         for i in range(1, self.num_layers+1):
             self.params['W'+str(i)] = weight_scale * np.random.randn(sizes[i-1], sizes[i])
             self.params['b'+str(i)] = np.zeros(sizes[i])
-
-        #!!!!!!!!batch's crap!!!!!!!!
+        if(self.normalization=='batchnorm'):
+            for i in range(1, self.num_layers):
+                self.params['gamma'+str(i)] = np.ones(sizes[i-1])
+                self.params['beta'+str(i)] = np.zeros(sizes[i-1])
 
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -212,7 +214,7 @@ class FullyConnectedNet(object):
 
         # Cast all parameters to the correct datatype
         for k, v in self.params.items():
-            self.params[k] = v.astype(dtype)
+            self.params[k] = dtype(v)
 
 
     def loss(self, X, y=None):
@@ -246,10 +248,16 @@ class FullyConnectedNet(object):
         ############################################################################
         input = copy.deepcopy(X)
         cache = []
+        cache_batch = []
         for i in range(1, self.num_layers):
             cur_output = 0
             w = self.params['W'+str(i)]
             b = self.params['b'+str(i)]
+
+            if(self.normalization=='batchnorm'):
+                input, cur_batch_cache = batchnorm_forward(input, self.params['gamma'+str(i)],
+                                                            self.params['beta'+str(i)], self.bn_params[i-1])
+                cache_batch.append(cur_batch_cache)
             cur_output, cur_cache = affine_relu_forward(input, w, b)
             cache.append(cur_cache)
             input = cur_output
@@ -292,6 +300,10 @@ class FullyConnectedNet(object):
 
         for i in range(self.num_layers-1, 0, -1):
             d_h, d_w, d_b = affine_relu_backward(d_h, cache[i-1])
+            if(self.normalization=='batchnorm'):
+                d_h, d_gamma, d_beta = batchnorm_backward_alt(d_h, cache_batch[i-1])
+                grads['gamma'+str(i)] = d_gamma
+                grads['beta'+str(i)] = d_beta
             cur_w = self.params['W'+str(i)]
             grads['W'+str(i)] = d_w + self.reg * cur_w
             grads['b'+str(i)] = d_b
