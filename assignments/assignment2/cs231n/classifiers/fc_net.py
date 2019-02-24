@@ -249,6 +249,7 @@ class FullyConnectedNet(object):
         input = copy.deepcopy(X)
         cache = []
         cache_batch = []
+        cache_dropout = []
         for i in range(1, self.num_layers):
             cur_output = 0
             w = self.params['W'+str(i)]
@@ -258,8 +259,14 @@ class FullyConnectedNet(object):
                 input, cur_batch_cache = batchnorm_forward(input, self.params['gamma'+str(i)],
                                                             self.params['beta'+str(i)], self.bn_params[i-1])
                 cache_batch.append(cur_batch_cache)
+            
             cur_output, cur_cache = affine_relu_forward(input, w, b)
             cache.append(cur_cache)
+            
+            if (self.use_dropout):
+                cur_output, cur_dropout_cache = dropout_forward(cur_output, self.dropout_param)
+                cache_dropout.append(cur_dropout_cache)
+            
             input = cur_output
         scores, cur_cache = affine_forward(input, self.params['W'+str(self.num_layers)], 
                                 self.params['b'+str(self.num_layers)])
@@ -299,11 +306,16 @@ class FullyConnectedNet(object):
         grads['b'+str(self.num_layers)] = d_b
 
         for i in range(self.num_layers-1, 0, -1):
+            if (self.use_dropout):
+                d_h = dropout_backward(d_h, cache_dropout[i-1])
+            
             d_h, d_w, d_b = affine_relu_backward(d_h, cache[i-1])
+            
             if(self.normalization=='batchnorm'):
                 d_h, d_gamma, d_beta = batchnorm_backward_alt(d_h, cache_batch[i-1])
                 grads['gamma'+str(i)] = d_gamma
                 grads['beta'+str(i)] = d_beta
+            
             cur_w = self.params['W'+str(i)]
             grads['W'+str(i)] = d_w + self.reg * cur_w
             grads['b'+str(i)] = d_b
