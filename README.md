@@ -1,4 +1,5 @@
-# cs231n
+# CS231n
+## Convolutional Neural Networks for Visual Recognition
 Convolutional Neuro Networks Standford course
  - Three assignments
  - A lot of experience
