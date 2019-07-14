@@ -152,7 +152,7 @@ class CaptioningRNN(object):
         if(self.cell_type == 'rnn'):
           h, cache_rnn = rnn_forward(captions_in, h0, Wx, Wh, b)
         elif(self.cell_type == 'lstm'):
-          pass
+          h, cache_lstm = lstm_forward(captions_in, h0, Wx, Wh, b)
         
         # step 4
         output, cache_vocab = temporal_affine_forward(h, W_vocab, b_vocab)
@@ -162,7 +162,10 @@ class CaptioningRNN(object):
 
         # calculating gradients
         dx, grads['W_vocab'], grads['b_vocab']= temporal_affine_backward(dx, cache_vocab)
-        dx, dh0, grads['Wx'], grads['Wh'], grads['b'] = rnn_backward(dx, cache_rnn)
+        if(self.cell_type == 'rnn'):
+          dx, dh0, grads['Wx'], grads['Wh'], grads['b'] = rnn_backward(dx, cache_rnn)
+        elif(self.cell_type == 'lstm'):
+          dx, dh0, grads['Wx'], grads['Wh'], grads['b'] = lstm_backward(dx, cache_lstm)
         grads['W_embed'] = word_embedding_backward(dx, cache_embedding)
         grads['W_proj'] = np.dot(features.T, dh0)
         grads['b_proj'] = np.dot(np.ones((1, dh0.shape[0])), dh0).reshape((512,))
@@ -236,6 +239,7 @@ class CaptioningRNN(object):
 
         # step 1
         h = np.zeros((N, W_vocab.shape[0]))
+        c = np.zeros(h.shape)
         for i in range(N):
           captions[i, 0] = self._start
           h[i, :] = np.dot(features[i, :], W_proj) + b_proj
@@ -250,9 +254,13 @@ class CaptioningRNN(object):
           # print('Wx:', Wx.shape)
           # print('Wh:', Wh.shape)
           # print('b:', b.shape)
-          h, _ = rnn_step_forward(emb_prev, h, Wx, Wh, b)
+          if(self.cell_type == 'rnn'):
+            h, _ = rnn_step_forward(emb_prev, h, Wx, Wh, b)
+          elif(self.cell_type == 'lstm'):
+            h, c, _ = lstm_step_forward(emb_prev, h, c, Wx, Wh, b)
 
           # step 3
+
 
           output = np.dot(h, W_vocab) + b_vocab
 
